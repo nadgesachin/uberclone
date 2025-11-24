@@ -1,0 +1,33 @@
+{
+    "superSecret": "dCEeq7mSPENCGxUr",
+    "email": "smtps://amresh.yadav%40dhwa.in:amresh@dhwa@smtp.gmail.com",
+    "sms": "http://ip.shreesms.net/smsserver/SMS10N.aspx?Userid=dfjnsdkj&UserPassword=hdfdd@2017%23&PhoneNumber=",
+    "default_profile_pic": "https://s3.ap-south-1.amazonaws.com/ggn-sfdf/resources/default-user-image.png",
+    "replyToMail": "nadgesachin@gmail.com",
+    "MSG91": {
+        "AUTHKEY": "180577AHgwvM5ZNxN59ef2bf8",
+        "POSTURL": "http://api.msg91.com/api/v2/sendsms",
+        "SENDERID": "DELTA",
+        "COUNTRY": "91"
+    },
+    "S3BUCKET": {
+        "DATA": {
+            "production": "tatadelta-is-row-data",
+            "staging": "tatadelta-is-row-data-stg",
+            "demo": "tatadelta-is-row-data-demo",
+            "development": "tatadelta-is-row-data-dev"
+        },
+        "IMAGE": {
+            "production": "tatadelta",
+            "staging": "tatadeltastaging",
+            "demo": "tatadeltademo",
+            "development": "tatadeltadev"
+        },
+        "PRIVATE" : {
+            "production": "mgrant-private-bucket",
+            "staging": "mgrant-private-bucket",
+            "demo": "mgrant-private-bucket",
+            "development": "mgrant-private-bucket"  
+        }
+    }
+}

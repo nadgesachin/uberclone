@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+
+const cluster = require('cluster');
+const os = require("os");
+require("dotenv").config();
+
+const numCPUs = os.cpus().length;
+const forkCount = process.env.ENV === "development" ? 1 : Math.max(1, numCPUs - 1);
+
+// if (cluster.isMaster) {
+//     console.log(`Master ${process.pid} running. Forks: ${forkCount}`);
+
+//     for (let i = 0; i < forkCount; i++) {
+//         cluster.fork();
+//     }
+
+//     cluster.on("exit", (worker) => {
+//         console.log(`Worker ${worker.process.pid} died. Restarting...`);
+//         // cluster.fork();
+//     });
+
+// } else {
+
+const app = require("../app");
+const { setupSocket } = require("../routes/services/socket");
+const kafkaConsumer = require("../routes/services/kafka-consumer");
+const http = require("http");
+const server = http.createServer(app);
+
+(async () => {
+  await setupSocket(server);   // wait for socket
+  await kafkaConsumer();       // now start consumers
+})();
+
+
+
+const PORT = process.env.PORT || 4000;
+server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Worker ${process.pid} running on port ${PORT}`);
+});
+// }
