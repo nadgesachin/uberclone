@@ -30,7 +30,6 @@ const handleRideAccepted = async ({ value }) => {
       return;
     }
 
-    // Customer का active socket ढूंढो
     const rawResult = await Redis.get(`socket-rider-${customerId}`);
     const customerSocketId = typeof rawResult === "object" ? rawResult?.data : rawResult;
 
@@ -75,7 +74,7 @@ const handleRideAccepted = async ({ value }) => {
 module.exports = () => {
   consumer({
     groupId: "ride-api-ride-accepted",
-    topic: config["ride-assigned"].topic, // ← यह config में होना चाहिए!
+    topic: config["ride-assigned"].topic, 
     callBackFunction: handleRideAccepted,
   });
 

@@ -1,6 +1,7 @@
 // src/components/Map/LeafletMap.jsx
-import React, { useEffect, useRef,useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
+import "./leaflet-map.css";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-routing-machine";
@@ -40,7 +41,6 @@ const selectedDriverIcon = new L.Icon({
   className: "glowing-driver",
 });
 
-// Auto-center
 function Recenter({ center }) {
   const map = useMap();
   useEffect(() => {
@@ -55,10 +55,18 @@ function RouteLine({ from, to, onRouteCalculated }) {
   const routeRef = useRef(null);
 
   useEffect(() => {
-    if (!from || !to) return;
+    if (!from?.lat || !from?.lng || !to?.lat || !to?.lng) {
+      if (routeRef.current) {
+        map.removeControl(routeRef.current);
+        routeRef.current = null;
+      }
+      onRouteCalculated?.([]);
+      return;
+    }
 
     if (routeRef.current) {
       map.removeControl(routeRef.current);
+      routeRef.current = null;
     }
 
     routeRef.current = L.Routing.control({
@@ -76,7 +84,6 @@ function RouteLine({ from, to, onRouteCalculated }) {
           lat: coord.lat,
           lng: coord.lng
         }));
-        // यहाँ coordinates parent को भेजो
         if (onRouteCalculated) {
           onRouteCalculated(coordinates);
         }
@@ -84,14 +91,19 @@ function RouteLine({ from, to, onRouteCalculated }) {
       .addTo(map);
 
     return () => {
-      if (routeRef.current) map.removeControl(routeRef.current);
+      if (routeRef.current) {
+        try {
+          map.removeControl(routeRef.current);
+        } catch (e) {
+        }
+        routeRef.current = null;
+      }
     };
-  }, [from, to, map, onRouteCalculated]);
+  }, [from?.lat, from?.lng, to?.lat, to?.lng, map, onRouteCalculated]);
 
   return null;
 }
 
-// Add यह component ऊपर (RouteLine के नीचे)
 function AnimatedDriverMarker({ driver, routeCoords }) {
   const markerRef = useRef(null);
   const map = useMap();
@@ -104,7 +116,7 @@ function AnimatedDriverMarker({ driver, routeCoords }) {
 
     let i = 0;
     const totalPoints = routeCoords.length;
-    const duration = 30000; // 30 seconds में pickup तक पहुँचे
+    const duration = 30000;
     const intervalTime = duration / totalPoints;
 
     const moveMarker = () => {
@@ -115,7 +127,6 @@ function AnimatedDriverMarker({ driver, routeCoords }) {
         setTimeout(moveMarker, intervalTime);
       } else {
         console.log("Driver reached pickup!");
-        // Optional: trigger event
         map.fire("driver-arrived");
       }
     };
@@ -144,7 +155,7 @@ function AnimatedDriverMarker({ driver, routeCoords }) {
   );
 }
 
-export default function LeafletMap({ center, pickup, dropoff, drivers = [], userType, selectedDriver, selectedCustomer }) {
+export default function LeafletMap({ center, pickup, dropoff, drivers = [], userType, selectedDriver, selectedCustomer, onDriverArrived }) {
   const [routeCoords, setRouteCoords] = useState([]);
   if (!center) return <div className="h-full flex items-center justify-center">Loading map...</div>;
 
@@ -153,19 +164,10 @@ export default function LeafletMap({ center, pickup, dropoff, drivers = [], user
 
   return (
     <>
-      <style jsx>{`
-        @keyframes glow {
-          0% { box-shadow: 0 0 10px #f97316; }
-          50% { box-shadow: 0 0 30px #f97316; }
-          100% { box-shadow: 0 0 10px #f97316; }
-        }
-        .glowing-driver {
-          animation: glow 2s infinite;
-          filter: brightness(1.3);
-        }
-      `}</style>
-
       <MapContainer
+        onDriverArrived={() => {
+          if (typeof onDriverArrived === "function") onDriverArrived();
+        }}
         key={`${center.lat}-${center.lng}`}
         center={[center.lat, center.lng]}
         zoom={15}
@@ -192,15 +194,15 @@ export default function LeafletMap({ center, pickup, dropoff, drivers = [], user
           drivers.map((d) => {
             const isSelected = selectedDriver && d.driverId === selectedDriver.driverId;
             return (
-              // <Marker
-              //   key={d.driverId}
-              //   position={[d.lat, d.lng]}
-              //   icon={isSelected ? selectedDriverIcon : greenIcon}
-              // >
+              <Marker
+                key={d.driverId}
+                position={[d.lat, d.lng]}
+                icon={isSelected ? selectedDriverIcon : greenIcon}
+              >
                 <Popup>
                   {isSelected ? <strong>Driver Coming!</strong> : `Driver ${d.driverId.slice(-6)}`}
                 </Popup>
-              // </Marker>
+              </Marker>
             );
           })}
 
@@ -212,18 +214,18 @@ export default function LeafletMap({ center, pickup, dropoff, drivers = [], user
             </Marker>
           )
         }
-        {/* Animated Driver (सिर्फ customer को दिखे) */}
+        {/* Animated Driver*/}
         {isCustomer && selectedDriver && routeCoords.length > 0 && (
           <AnimatedDriverMarker driver={selectedDriver} routeCoords={routeCoords} />
         )}
-        {/* Route + Coordinates निकालो */}
-      {isCustomer && pickup && selectedDriver && (
-        <RouteLine
-          from={selectedDriver}
-          to={pickup}
-          onRouteCalculated={setRouteCoords}
-        />
-      )}
+        {/* Route + Coordinates  */}
+        {isCustomer && pickup && selectedDriver && (
+          <RouteLine
+            from={selectedDriver}
+            to={pickup}
+            onRouteCalculated={setRouteCoords}
+          />
+        )}
         {
           //Only for driver: pickup to dropoff
           !isCustomer && pickup && dropoff && (

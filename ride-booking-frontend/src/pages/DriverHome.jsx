@@ -84,6 +84,8 @@ export default function DriverHome() {
   const [currentRequest, setCurrentRequest] = useState(null);
   const [activeRide, setActiveRide] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [rideStatus, setRideStatus] = useState("going_to_pickup"); // going_to_pickup, arrived, ongoing, completed
+  const [showCompletePopup, setShowCompletePopup] = useState(false);
 
   const { user } = useAuth();
   const driverId = user?._id;
@@ -127,6 +129,7 @@ export default function DriverHome() {
         console.log("Received rideAcceptedByDriver:", request);
         setActiveRide(request);
         setSelectedCustomer(request?.pickup);
+        setRideStatus("going_to_pickup");
         if (callback) callback({ received: true });
       });
 
@@ -151,7 +154,7 @@ export default function DriverHome() {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
-          rideRequestId: currentRequest.rideRequestId,
+          rideRequestId: currentRequest?.rideRequestId,
           driverId,
           driverLocation: location, // optional
         }),
@@ -161,7 +164,7 @@ export default function DriverHome() {
 
       if (data.success) {
         setActiveRide({
-          rideRequestId: currentRequest.rideRequestId,
+          rideRequestId: currentRequest?.rideRequestId,
           pickup: currentRequest.customerLocation,
           customerId: currentRequest.customerId,
         });
@@ -178,9 +181,36 @@ export default function DriverHome() {
     }
   };
 
+  const handleDriverArrived = () => {
+    setRideStatus("arrived");
+    alert("You have arrived at pickup location!");
+
+    // Notify to Customer 
+    getSocket().emit("driverArrived", { rideRequestId: activeRide?.rideRequestId });
+  };
+
+  const completeRide = async () => {
+    try {
+      await fetch("http://localhost:4000/api/v1/ride/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          rideRequestId: activeRide?.rideRequestId,
+          driverId,
+        }),
+      });
+      setShowCompletePopup(false);
+      alert("Ride completed! Moving to payment...");
+    } catch (err) {
+      alert("Failed to complete ride");
+    }
+  };
+
   const ignoreRide = () => setCurrentRequest(null);
 
-  // Driver का marker
   const myDriverMarker = location ? [{
     driverId,
     lat: location.lat,
@@ -202,7 +232,6 @@ export default function DriverHome() {
         </div>
       )}
 
-
       <div className="flex-1 relative">
         {location ? (
           <LeafletMap
@@ -211,7 +240,9 @@ export default function DriverHome() {
             dropoff={selectedCustomer}
             drivers={myDriverMarker}
             userType="driver"
-            selectedCustomer={selectedCustomer} 
+            // selectedCustomer={selectedCustomer}
+            selectedCustomer={activeRide?.pickup}
+            onDriverArrived={handleDriverArrived}
           />
         ) : (
           <div className="h-full flex items-center justify-center text-2xl">Starting driver mode...</div>
@@ -221,6 +252,36 @@ export default function DriverHome() {
           ONLINE
         </div>
       </div>
+
+      {/* Driver Arrived → Show Complete Button */}
+      {rideStatus === "arrived" && (
+        <div className="fixed bottom-10 left-4 right-4 z-50">
+          <button
+            onClick={() => setShowCompletePopup(true)}
+            className="w-full bg-green-600 text-white py-5 rounded-2xl text-2xl font-bold shadow-2xl"
+          >
+            Start Ride
+          </button>
+        </div>
+      )}
+
+      {/* Ride Complete Popup */}
+      {showCompletePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-[99999] flex items-center justify-center">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4 text-center">
+            <h2 className="text-3xl font-bold mb-6">Ride Complete?</h2>
+            <p className="text-gray-600 mb-8">Has the customer reached destination?</p>
+            <div className="flex gap-4">
+              <button onClick={() => setShowCompletePopup(false)} className="flex-1 bg-gray-500 text-white py-4 rounded-xl text-xl">
+                Cancel
+              </button>
+              <button onClick={completeRide} className="flex-1 bg-green-600 text-white py-4 rounded-xl text-xl font-bold">
+                Complete Ride
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

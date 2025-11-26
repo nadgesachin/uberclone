@@ -14,6 +14,8 @@ export default function CustomerHome() {
   const [assignedDriverId, setAssignedDriverId] = useState(null);
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [allDrivers, setAllDrivers] = useState([]);
+  const [assignedDriver, setAssignedDriver] = useState(null);
+  const [driverArrived, setDriverArrived] = useState(false);
 
   const { user } = useAuth();
   const customerId = user?._id;
@@ -27,8 +29,12 @@ export default function CustomerHome() {
     socket.on("rideAccepted", (request, callback) => {
       console.log("Received rideAccepted:", request);
       setRideStatus("accepted");
-      setAssignedDriverId(request?.driverLocation);
-      setSelectedDriver(request?.driverLocation);
+      setAssignedDriver({
+        driverId: request.driverId,
+        lat: request.driverLocation?.lat || request.pickup.lat,
+        lng: request.driverLocation?.lng || request.pickup.lng,
+      });
+      // setSelectedDriver(request?.driverLocation);
       if (callback) callback({ received: true });
     });
 
@@ -48,7 +54,6 @@ export default function CustomerHome() {
 
   const requestRide = async () => {
     if (!pickup || !dropoff) return alert("Pickup & Dropoff required");
-
     const token = localStorage.getItem("token");
     if (!token) return alert("Please login again");
 
@@ -85,41 +90,17 @@ export default function CustomerHome() {
 
       fetchNearbyDrivers();
 
-      // const firstDriver = res.data.nearbyDrivers?.[0] || res.data.drivers?.[0];
-      // if (firstDriver) {
-      //   setSelectedDriver(firstDriver);
-      // }
-
     } catch (err) {
       alert("Request failed");
       console.error("Ride request error:", err.response?.data || err);
     }
   };
 
-  // useEffect(() => {
-  //   if (rideStatus == "requested") {
-  //     if (!myLocation?.lat || !myLocation?.lng || !customerId) {
-  //       return;
-  //     }
-
-  //     const fetchNearbyDrivers = async () => {
-  //       try {
-  //         const res = await axios.get(
-  //           `http://localhost:4000/api/v1/driver/nearby-drivers?customerId=${customerId}&lat=${myLocation.lat}&lng=${myLocation.lng}&radius=2`
-  //         );
-  //         setAllDrivers(res.data.drivers || []);
-  //         console.log("Nearby drivers loaded:", res.data.nearbyDrivers);
-  //       } catch (err) {
-  //         console.error("Failed to load nearby drivers:", err.response?.data || err);
-  //       }
-  //     };
-
-  //     fetchNearbyDrivers();
-  //     const interval = setInterval(fetchNearbyDrivers, 10000);
-
-  //     return () => clearInterval(interval);
-  //   }
-  // }, []);
+  const handleDriverArrived = () => {
+    setDriverArrived(true);
+    setRideStatus("arrived");
+    alert("Driver has arrived at your location!");
+  };
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
@@ -159,7 +140,8 @@ export default function CustomerHome() {
           dropoff={dropoff}
           drivers={allDrivers}
           userType={userType}
-          selectedDriver={selectedDriver}   // ← NEW PROP
+          selectedDriver={assignedDriver}
+          onDriverArrived={handleDriverArrived}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-2xl">
@@ -167,10 +149,17 @@ export default function CustomerHome() {
         </div>
       )}
 
-      {rideStatus === "accepted" && (
-        <div className="absolute top-20 left-4 bg-green-600 text-white p-4 rounded-lg shadow-2xl z-50">
-          <strong>Driver is coming!</strong>
-          <p className="text-sm mt-1">Live tracking active</p>
+      {rideStatus === "accepted" && !driverArrived && (
+        <div className="absolute top-20 left-4 right-4 bg-green-600 text-white p-5 rounded-2xl shadow-2xl z-50 text-center animate-pulse">
+          <h3 className="text-xl font-bold">Driver is on the way!</h3>
+          <p>Live tracking active</p>
+        </div>
+      )}
+
+      {driverArrived && (
+        <div className="absolute top-20 left-4 right-4 bg-blue-600 text-white p-5 rounded-2xl shadow-2xl z-50 text-center">
+          <h3 className="text-xl font-bold">Driver has arrived!</h3>
+          <p>Get ready to board</p>
         </div>
       )}
     </div>

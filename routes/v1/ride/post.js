@@ -79,85 +79,106 @@ const createRideRequest = async (req, res) => {
 };
 
 const acceptRide = async (req, res) => {
-  try {
-    const { rideRequestId, driverId } = req.body;
+    try {
+        const { rideRequestId, driverId } = req.body;
 
-    const ride = await RideRequest.findByIdAndUpdate(
-      rideRequestId,
-      {
-        driverId,
-        status: "accepted",
-        acceptedAt: new Date(),
-      },
-      { new: true }
-    ).populate("customerId").lean();
+        const ride = await RideRequest.findByIdAndUpdate(
+            rideRequestId,
+            {
+                driverId,
+                status: "accepted",
+                acceptedAt: new Date(),
+            },
+            { new: true }
+        ).populate("customerId").lean();
 
-    if (!ride) return res.status(404).json({ message: "Ride not found" });
+        if (!ride) return res.status(404).json({ message: "Ride not found" });
 
-    // Kafka में ride-assigned event भेजो
-    await kafka.producer({
-      topic: config["ride-assigned"].topic,
-      key: rideRequestId,
-      value: JSON.stringify({
-        rideRequestId,
-        driverId,
-        customerId: ride?.customerId?._id,
-        pickup: ride?.pickupLocation,
-        driverLocation: req.body?.driverLocation, // optional
-      }),
-    });
+        // Kafka में ride-assigned event भेजो
+        await kafka.producer({
+            topic: config["ride-assigned"].topic,
+            key: rideRequestId,
+            value: JSON.stringify({
+                rideRequestId,
+                driverId,
+                customerId: ride?.customerId?._id,
+                pickup: ride?.pickupLocation,
+                driverLocation: req.body?.driverLocation, // optional
+            }),
+        });
 
-    res.json({ success: true, ride });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-    
-const rejectRide = async (req, res) => {
-  try {
-    const { rideRequestId, driverId } = req.body;
-
-    const ride = await RideRequest.findByIdAndUpdate(
-      rideRequestId,
-      {
-        driverId,
-        status: "accepted",
-        acceptedAt: new Date(),
-      },
-      { new: true }
-    ).populate("customerId");
-
-    if (!ride) return res.status(404).json({ message: "Ride not found" });
-
-    // Kafka में ride-assigned event भेजो
-    await kafka.producer({
-      topic: "ride-assigned",
-      key: rideRequestId,
-      value: JSON.stringify({
-        rideRequestId,
-        driverId,
-        customerId: ride.customerId._id,
-        pickup: ride.pickup,
-        driverLocation: req.body.driverLocation, // optional
-      }),
-    });
-
-    // Customer को socket से तुरंत notify (fallback)
-    const riderSocketId = await Redis.get(`socket-rider-${ride.customerId._id}`);
-    if (riderSocketId && global.socketIo) {
-      global.socketIo.to(riderSocketId).emit("rideAccepted", {
-        rideRequestId,
-        driverId,
-        message: "Driver is on the way!",
-      });
+        res.json({ success: true, ride });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
     }
-
-    res.json({ success: true, ride });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
 };
 
-module.exports = { createRideRequest, acceptRide, rejectRide };
+const rejectRide = async (req, res) => {
+    try {
+        const { rideRequestId, driverId } = req.body;
+
+        const ride = await RideRequest.findByIdAndUpdate(
+            rideRequestId,
+            {
+                driverId,
+                status: "accepted",
+                acceptedAt: new Date(),
+            },
+            { new: true }
+        ).populate("customerId");
+
+        if (!ride) return res.status(404).json({ message: "Ride not found" });
+
+        // Kafka में ride-assigned event भेजो
+        await kafka.producer({
+            topic: "ride-assigned",
+            key: rideRequestId,
+            value: JSON.stringify({
+                rideRequestId,
+                driverId,
+                customerId: ride.customerId._id,
+                pickup: ride.pickup,
+                driverLocation: req.body.driverLocation, // optional
+            }),
+        });
+
+        // Customer को socket से तुरंत notify (fallback)
+        const riderSocketId = await Redis.get(`socket-rider-${ride.customerId._id}`);
+        if (riderSocketId && global.socketIo) {
+            global.socketIo.to(riderSocketId).emit("rideAccepted", {
+                rideRequestId,
+                driverId,
+                message: "Driver is on the way!",
+            });
+        }
+
+        res.json({ success: true, ride });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+const completeRide = async (req, res) => {
+    const { rideRequestId } = req.body;
+   const data = await RideRequest.findByIdAndUpdate(rideRequestId, { status: "completed" }).lean();
+
+    await kafka.producer({
+        topic: config["ride-ended"].topic,
+        key: config["ride-ended"].key,
+        value: JSON.stringify({
+            data
+        }),
+    });
+
+    res.status(201).json({
+        success: true,
+        data: data || [],
+        message: "Ride ended successfully",
+    });
+
+    res.json({ success: true });
+};
+
+module.exports = { createRideRequest, acceptRide, rejectRide,completeRide };
