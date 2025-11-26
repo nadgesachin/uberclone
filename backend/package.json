@@ -4,7 +4,7 @@
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node app.js",
+    "start": "node --max-old-space-size=8192 ./bin/delta_admin_api",
     "dev": "nodemon  ./bin/delta_admin_api --ignore tests/"
   },
   "author": "",
