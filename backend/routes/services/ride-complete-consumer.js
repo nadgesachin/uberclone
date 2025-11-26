@@ -1,7 +1,7 @@
 
-const { consumer } = require("../services/kafka");
+const { consumer } = require("./kafka");
 const socketIo = global.socketIo;
-const Redis = require("../services/redis");
+const Redis = require("./redis");
 const config = require("../config/kafka-config.json");
 
 const handleRideRequest = async ({ value }) => {

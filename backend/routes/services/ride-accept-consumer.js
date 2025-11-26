@@ -1,8 +1,8 @@
 // consumers/rideAcceptConsumer.js
 
-const { consumer } = require("../services/kafka");
+const { consumer } = require("./kafka");
 const config = require("../config/kafka-config.json");
-const Redis = require("../services/redis");
+const Redis = require("./redis");
 
 const handleRideAccepted = async ({ value }) => {
   try {
