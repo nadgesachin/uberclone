@@ -27,7 +27,7 @@ export default function Login() {
       login(res.data, res.token);
 
       // Redirect based on userType
-      if (res.data.userType === "driver") {
+      if (res.data.userType == "driver") {
         navigate("/driver");
       } else {
         navigate("/customer");

@@ -1,10 +1,10 @@
 // const { promisify } = require("util");
 const { createClient } = require("redis");
-const CONFIG = require("../config").REDIS;
+const CONFIG = require("../config/index").REDIS;
 
 let host, port;
 
-if (CONFIG.hasOwnProperty(process.env.ENV)) {
+if (CONFIG?.hasOwnProperty(process.env.ENV)) {
     host = CONFIG[process.env.ENV]["host"];
     port = CONFIG[process.env.ENV]["port"];
 } else {
@@ -92,6 +92,21 @@ module.exports.get = async (key) => {
         console.error("Redis get error:", err);
         throw err;
     }
+};
+
+module.exports.safeHSet = async (key, data) => {
+    await ensureConnection();
+
+    const type = await Client.type(key);
+
+    // If key exists but is not a hash → FIX IT
+    if (type !== "hash" && type !== "none") {
+        console.warn(`⚠️ Redis key type mismatch for ${key}. Found: ${type}. Auto-fixing...`);
+        await Client.del(key);
+    }
+
+    // Now we can safely write HASH
+    return await Client.hSet(key, data);
 };
 
 module.exports.getMatching = async (key) => {

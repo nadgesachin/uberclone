@@ -2,52 +2,62 @@ const Redis = require("../../services/redis");
 
 exports.getNearbyDriversByCustomer = async (req, res) => {
     try {
-        const { customerId, radius = 2 } = req.query;
+        let { lat, lng, radius = 2 } = req.query;
 
-        if (!customerId) {
-            return res.status(400).json({ error: "customerId is required" });
+        lat = Number(lat);
+        lng = Number(lng);
+        radius = Number(radius);
+
+        if (Number.isNaN(lat) || Number.isNaN(lng) || Number.isNaN(radius)) {
+            return res.status(400).json({ error: "lat, lng and radius must be valid numbers" });
         }
 
-        const customerKey = `customer-${customerId}`;
-        const customerData = await Redis.Client.hGetAll(customerKey);
-
-        if (!customerData.lat || !customerData.lng) {
-            return res.status(404).json({ error: "Customer location not found in Redis" });
-        }
-
-        const lat = Number(customerData.lat);
-        const lng = Number(customerData.lng);
-
-        const drivers = await Redis.geoSearch(
+        // RAW GEOSEARCH (never fails)
+        const raw = await Redis.Client.sendCommand([
+            "GEOSEARCH",
             "drivers:live",
-            lng,
-            lat,
-            Number(radius),
-            20
-        );
+            "FROMLONLAT",
+            lng.toString(),        // longitude
+            lat.toString(),        // latitude
+            "BYRADIUS",
+            radius.toString(),
+            "km",
+            "WITHDIST",
+            "WITHCOORD"
+        ]);
 
-        const formatted = drivers.map((d) => {
-            const member = d[0];
-            const distance = d[1];
-            const coords = d[2];
+        console.log("RAW FROM REDIS:", raw);
+
+        // raw format:
+        // [
+        //   ["driver-xxx", "0.123", ["77.x", "28.x"]],
+        //   ...
+        // ]
+
+        const formatted = raw.map((item) => {
+            const member = item[0];
+            const distance = Number(item[1]);
+            const coords = item[2];       // [lng, lat]
 
             return {
                 driverKey: member,
                 driverId: member.replace("driver-", ""),
-                distanceInKm: Number(distance),
+                distanceInKm: distance,
                 lat: Number(coords[1]),
-                lng: Number(coords[0])
+                lng: Number(coords[0]),
             };
         });
 
-        res.json({
+        return res.json({
             success: true,
-            customerLocation: { lat, lng },
-            nearbyDrivers: formatted
+            count: formatted.length,
+            drivers: formatted,
         });
 
     } catch (err) {
-        console.error("ERROR: ", err);
-        res.status(500).json({ error: err.message });
+        console.error("getNearbyDrivers ERROR:", err);
+        return res.status(500).json({ error: err.message });
     }
 };
+
+

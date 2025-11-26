@@ -36,4 +36,7 @@ apiRoutes.use("/user", userRoutes);
 const driverRoutes = require("./driver/route");
 apiRoutes.use("/driver", driverRoutes);
 
+const rideRoutes = require("./ride/route");
+apiRoutes.use("/ride", rideRoutes);
+
 module.exports = apiRoutes;

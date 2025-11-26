@@ -1,150 +1,246 @@
-import React, { useEffect, useMemo } from "react";
+// src/components/Map/LeafletMap.jsx
+import React, { useEffect, useRef,useState } from "react";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-routing-machine";
 import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-/* -------------------------------------------
-| Fix Leaflet Marker Icons
-------------------------------------------- */
+// Fix icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-/* -------------------------------------
-| Custom Icons
-------------------------------------- */
-const driverIcon = new L.Icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/128/1946/1946429.png",
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
+// Icons
+const blueIcon = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
 });
 
-const customerIcon = new L.Icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/128/684/684908.png",
-  iconSize: [38, 38],
-  iconAnchor: [19, 38],
+const greenIcon = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
 });
 
-/* -------------------------------------
-| Auto center map
-------------------------------------- */
-function RecenterMap({ center }) {
+const selectedDriverIcon = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [35, 51],
+  iconAnchor: [17, 51],
+  popupAnchor: [1, -44],
+  className: "glowing-driver",
+});
+
+// Auto-center
+function Recenter({ center }) {
   const map = useMap();
   useEffect(() => {
-    if (center?.lat && center?.lng) {
-      map.flyTo([center.lat, center.lng], 15);
-    }
+    if (center) map.setView([center.lat, center.lng], 15, { animate: true });
   }, [center]);
   return null;
 }
 
-export default function LeafletMap({
-  center,
-  zoom = 14,
-  pickup,
-  dropoff,
-  drivers = [],
-  onRouteReady = () => { },
-}) {
-  const centerPos = useMemo(() => [center.lat, center.lng], [center]);
+// Draw route between two points
+function RouteLine({ from, to, onRouteCalculated }) {
+  const map = useMap();
+  const routeRef = useRef(null);
 
-  /* -------------------------------------
-  | Routing Machine with ORS API (custom)
-  ------------------------------------- */
-  function RoutingMachine({ from, to }) {
-    const map = useMap();
+  useEffect(() => {
+    if (!from || !to) return;
 
-    useEffect(() => {
-      if (!from || !to) return;
+    if (routeRef.current) {
+      map.removeControl(routeRef.current);
+    }
 
-      const routingControl = L.Routing.control({
-        waypoints: [
-          L.latLng(from.lat, from.lng),
-          L.latLng(to.lat, to.lng),
-        ],
-        router: L.Routing.osrmv1({
-          serviceUrl: "https://router.project-osrm.org/route/v1",
-        }),
-        addWaypoints: false,
-        draggableWaypoints: false,
-        fitSelectedRoutes: true,
-        showAlternatives: false,
-        lineOptions: {
-          styles: [{ color: "#007bff", weight: 5 }],
-        },
-      }).addTo(map);
+    routeRef.current = L.Routing.control({
+      waypoints: [L.latLng(from.lat, from.lng), L.latLng(to.lat, to.lng)],
+      routeWhileDragging: false,
+      addWaypoints: false,
+      createMarker: () => null,
+      lineOptions: { styles: [{ color: "#3b82f6", weight: 7, opacity: 0.8 }] },
+      show: false,
+      fitSelectedRoutes: false,
+    })
+      .on("routesfound", function (e) {
+        const route = e.routes[0];
+        const coordinates = route.coordinates.map(coord => ({
+          lat: coord.lat,
+          lng: coord.lng
+        }));
+        // यहाँ coordinates parent को भेजो
+        if (onRouteCalculated) {
+          onRouteCalculated(coordinates);
+        }
+      })
+      .addTo(map);
 
-      return () => {
-        map.removeControl(routingControl);
-      };
-    }, [from, to]);
+    return () => {
+      if (routeRef.current) map.removeControl(routeRef.current);
+    };
+  }, [from, to, map, onRouteCalculated]);
 
-    return null;
-  }
+  return null;
+}
 
-  /* -------------------------------------
-  | Render Map
-  ------------------------------------- */
+// Add यह component ऊपर (RouteLine के नीचे)
+function AnimatedDriverMarker({ driver, routeCoords }) {
+  const markerRef = useRef(null);
+  const map = useMap();
+
+  useEffect(() => {
+    if (!driver || !routeCoords || routeCoords.length < 2) return;
+
+    const marker = markerRef.current;
+    if (!marker) return;
+
+    let i = 0;
+    const totalPoints = routeCoords.length;
+    const duration = 30000; // 30 seconds में pickup तक पहुँचे
+    const intervalTime = duration / totalPoints;
+
+    const moveMarker = () => {
+      if (i < totalPoints) {
+        const { lat, lng } = routeCoords[i];
+        marker.setLatLng([lat, lng]);
+        i++;
+        setTimeout(moveMarker, intervalTime);
+      } else {
+        console.log("Driver reached pickup!");
+        // Optional: trigger event
+        map.fire("driver-arrived");
+      }
+    };
+
+    // Start animation
+    moveMarker();
+
+    return () => {
+      i = totalPoints; // stop animation
+    };
+  }, [driver, routeCoords, map]);
+
+  if (!driver) return null;
+
   return (
-    <div className="w-full h-full rounded overflow-hidden">
-      <MapContainer center={centerPos} zoom={zoom} className="w-full h-full">
-        <RecenterMap center={center} />
+    <Marker
+      ref={markerRef}
+      position={[driver.lat, driver.lng]}
+      icon={selectedDriverIcon}
+    >
+      <Popup>
+        <strong>Driver is coming!</strong><br />
+        Moving to pickup...
+      </Popup>
+    </Marker>
+  );
+}
 
-        <TileLayer
-          attribution="© OpenStreetMap"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+export default function LeafletMap({ center, pickup, dropoff, drivers = [], userType, selectedDriver, selectedCustomer }) {
+  const [routeCoords, setRouteCoords] = useState([]);
+  if (!center) return <div className="h-full flex items-center justify-center">Loading map...</div>;
 
-        {/* Draw Route */}
-        {pickup && dropoff && <RoutingMachine from={pickup} to={dropoff} />}
+  const isCustomer = userType === "customer";
+  const firstDriver = drivers[0]; // First nearby driver
 
-        {/* Pickup Marker */}
-        {pickup && (
-          <Marker position={[pickup.lat, pickup.lng]} icon={customerIcon}>
-            <Popup>Pickup</Popup>
+  return (
+    <>
+      <style jsx>{`
+        @keyframes glow {
+          0% { box-shadow: 0 0 10px #f97316; }
+          50% { box-shadow: 0 0 30px #f97316; }
+          100% { box-shadow: 0 0 10px #f97316; }
+        }
+        .glowing-driver {
+          animation: glow 2s infinite;
+          filter: brightness(1.3);
+        }
+      `}</style>
+
+      <MapContainer
+        key={`${center.lat}-${center.lng}`}
+        center={[center.lat, center.lng]}
+        zoom={15}
+        style={{ height: "100%", width: "100%" }}
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <Recenter center={center} />
+
+        {/* Customer pickup */}
+        {isCustomer && pickup && (
+          <Marker position={[pickup.lat, pickup.lng]} icon={blueIcon}>
+            <Popup>You are here</Popup>
           </Marker>
         )}
 
-        {/* Dropoff Marker */}
-        {dropoff && (
-          <Marker position={[dropoff.lat, dropoff.lng]} icon={customerIcon}>
-            <Popup>Dropoff</Popup>
+        {!isCustomer && pickup && (
+          <Marker position={[pickup.lat, pickup.lng]} icon={greenIcon}>
+            <Popup>You are here</Popup>
           </Marker>
         )}
 
-        {/* Drivers */}
-        {drivers.map((d, index) => {
-          const lat = d.lat ?? d.currentLocation?.lat;
-          const lng = d.lng ?? d.currentLocation?.lng;
+        {/* All drivers */}
+        {isCustomer &&
+          drivers.map((d) => {
+            const isSelected = selectedDriver && d.driverId === selectedDriver.driverId;
+            return (
+              // <Marker
+              //   key={d.driverId}
+              //   position={[d.lat, d.lng]}
+              //   icon={isSelected ? selectedDriverIcon : greenIcon}
+              // >
+                <Popup>
+                  {isSelected ? <strong>Driver Coming!</strong> : `Driver ${d.driverId.slice(-6)}`}
+                </Popup>
+              // </Marker>
+            );
+          })}
 
-          if (!lat || !lng) return null;
-
-          return (
-            <Marker
-              key={index}
-              position={[lat, lng]}
-              icon={driverIcon}
-            >
-              <Popup>Driver {d.driverId || index}</Popup>
+        {
+          //Only for driver
+          !isCustomer && firstDriver && (
+            <Marker position={[firstDriver.lat, firstDriver.lng]} icon={blueIcon}>
+              <Popup>Pickup Location</Popup>
             </Marker>
-          );
-        })}
+          )
+        }
+        {/* Animated Driver (सिर्फ customer को दिखे) */}
+        {isCustomer && selectedDriver && routeCoords.length > 0 && (
+          <AnimatedDriverMarker driver={selectedDriver} routeCoords={routeCoords} />
+        )}
+        {/* Route + Coordinates निकालो */}
+      {isCustomer && pickup && selectedDriver && (
+        <RouteLine
+          from={selectedDriver}
+          to={pickup}
+          onRouteCalculated={setRouteCoords}
+        />
+      )}
+        {
+          //Only for driver: pickup to dropoff
+          !isCustomer && pickup && dropoff && (
+            <RouteLine from={pickup} to={dropoff} />
+          )
+        }
 
+        {/* Draw route from customer to first driver */}
+        {isCustomer && firstDriver && selectedDriver && (
+          <RouteLine from={pickup} to={{ lat: firstDriver.lat, lng: firstDriver.lng }} />
+        )}
+
+        {/* Draw route from customer to first driver */}
+        {firstDriver && selectedCustomer && (
+          <RouteLine from={firstDriver} to={selectedCustomer} />
+        )}
       </MapContainer>
-
-      <div className="text-center text-xs mt-1 text-gray-500">
-        Map powered by OpenStreetMap
-      </div>
-    </div>
+    </>
   );
 }

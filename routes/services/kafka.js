@@ -5,7 +5,7 @@ const cluster = require("cluster");
 
 const kafkaConfig = require("../config/kafka-config.json");
 
-const broker = "10.111.80.166:9092";
+const broker = "10.35.73.166:9092";
 
 const producerError = {
     REQUEST_TIMEOUT: "KAFKA PRODUCER REQUEST TIMEOUT",
@@ -73,86 +73,71 @@ const producer =
         return producer;
     })();
 
+// services/kafka.js → producer function को ऐसे बदलो
 exports.producer = async ({ headers = {}, topic = "default-topic", key, value, generateLog = true }) => {
-    try {
-        if (!value) {
-            throw new Error("Data not Provided");
-        }
-        if (!broker) {
-            throw new Error("Kafka Broker not provided");
-        }
-        let messages = Array.isArray(value)
-            ? value.map((el) => ({ headers, key, value: JSON.stringify(el) }))
-            : [{ headers, key, value: JSON.stringify(value) }];
-        await producer.connect();
-        await producer.send({
-            topic,
-            messages,
-            acks: -1,
-            timeout: 30000,
-            retry: { initialRetryTime: 1000, retries: 3 },
-            compression: CompressionTypes.GZIP,
-        });
-        // await producer.disconnect();
-    } catch (error) {
-        if (generateLog) {
-            console.log(error);
-        } else {
-            throw error;
-        }
-    }
+  try {
+    console.log("Producing to Kafka:", { topic, key, value: typeof value === "object" ? JSON.stringify(value) : value });
+
+    if (!value) throw new Error("Data not Provided");
+
+    const messages = Array.isArray(value)
+      ? value.map((el) => ({
+          key: key,                              // key बाहर
+          value: JSON.stringify(el),
+          headers,
+        }))
+      : [{
+          key: key,                              // key बाहर (सबसे जरूरी)
+          value: JSON.stringify(value),
+          headers,
+        }];
+
+    await producer.send({
+      topic,
+      messages,
+      acks: -1,
+      timeout: 30000,
+      compression: CompressionTypes.GZIP,
+    });
+
+    console.log(`Message produced to topic: ${topic}`);
+  } catch (error) {
+    console.error("Kafka Producer Error:", error.message);
+    if (!generateLog) throw error;
+  }
 };
 
+// services/kafka.js → सिर्फ यह हिस्सा replace करो
+
 exports.consumer = async ({
-    groupId,
-    topic = "default-topic",
-    minBytes = 1048,
-    maxBytes = 10000,
-    callBackFunction,
-    returnToLastOffset = false,
+  groupId,
+  topic,
+  callBackFunction,
+  returnToLastOffset = false,
 }) => {
-    const consumer = kafka.consumer({
-        groupId,
-        sessionTimeout: 30000,
-        heartbeatInterval: 1000,
-        allowAutoTopicCreation: true,
-        retry: { retries: 3 },
-        maxInFlightRequests: 5,
-        minBytes,
-        maxBytes,
-        // rebalanceTimeout: 60000, // In case of multiple consumer in group present It is max time tp rejoin the
-        // maxBytesPerPartition:1048576
+  const consumer = kafka.consumer({
+    groupId,
+    sessionTimeout: 30000,
+    heartbeatInterval: 3000,
+    allowAutoTopicCreation: true,
+    retry: { retries: 5 },
+  });
+
+  // यहाँ cluster condition हटाओ — हमेशा connect करो!
+  try {
+    console.log(`Starting Kafka Consumer → Group: ${groupId} | Topic: ${topic}`);
+    
+    // सीधे consumerConnect call करो (तुम्हारा powerful function)
+    await consumerConnect({ 
+      consumer, 
+      groupId, 
+      topic, 
+      callBackFunction 
     });
-    try {
-        if (cluster.worker?.id == 1) {
-            //Events to return to last offset
-            consumerEvents.forEach((el) => {
-                consumer.on(consumer.events[el], async () => {
-                    await returnToOffset({ returnToLastOffset, topic, consumer, groupId });
-                });
-            });
-            Object.keys(consumerError).forEach((type) => {
-                consumer.on(consumer.events[type], async (doc) => {
-                    if (type.toString() == "CRASH") {
-                        try {
-                            await consumer.disconnect();
-                        } finally {
-                            setTimeout(async () => {
-                                await consumerConnect({ consumer, groupId, topic, callBackFunction });
-                            }, 900000);
-                        }
-                    }
-                    console.log(doc);
-                });
-            });
-            await consumerConnect({ consumer, groupId, topic, callBackFunction });
-        }
-    } catch (error) {
-        console.log(`🚀 --------------------------------------------------🚀`);
-        console.log(`🚀 ~ file: kafka.js:127 ~ consumer ~ error:`, error);
-        console.log(`🚀 --------------------------------------------------🚀`);
-        console.log(error);
-    }
+
+  } catch (error) {
+    console.error("Consumer startup failed:", error);
+  }
 };
 
 function convertBufferObjToJSON(data) {

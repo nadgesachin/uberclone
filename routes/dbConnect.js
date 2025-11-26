@@ -1,7 +1,7 @@
 const fs = require("fs");
 const cluster = require("cluster");
 const mongoose = require("mongoose");
-const { DB_CONNECTION: CONFIG } = require("../routes/config");
+const { DB_CONNECTION: CONFIG } = require("./config/index");
 const mailService = require("./services/email");
 
 // Load env variables

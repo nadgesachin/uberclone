@@ -24,18 +24,29 @@ const forkCount = process.env.ENV === "development" ? 1 : Math.max(1, numCPUs - 
 const app = require("../app");
 const { setupSocket } = require("../routes/services/socket");
 const kafkaConsumer = require("../routes/services/kafka-consumer");
+const rideRequestConsumer = require("../routes/services/ride-request-consumer");
+const rideAcceptConsumer = require("../routes/services/ride-accept-consumer");
 const http = require("http");
 const server = http.createServer(app);
 
-(async () => {
-  await setupSocket(server);   // wait for socket
-  await kafkaConsumer();       // now start consumers
-})();
-
-
-
 const PORT = process.env.PORT || 4000;
+// 1. Server पहले start करो (तुरंत listen होना चाहिए)
 server.listen(PORT, "0.0.0.0", () => {
-    console.log(`Worker ${process.pid} running on port ${PORT}`);
+  console.log(`Server running on http://localhost:${PORT} | PID: ${process.pid}`);
 });
+
+// 2. Server start होने के बाद ही Socket.IO setup करो
+setupSocket(server)
+  .then(() => {
+    console.log("Socket.IO Ready");
+
+    // 3. Socket ready होने के बाद ही Consumer start करो
+    rideRequestConsumer();
+    rideAcceptConsumer();
+    console.log("Ride Request Consumer Started → Topic: ride-request");
+  })
+  .catch((err) => {
+    console.error("Failed to setup Socket.IO:", err);
+    process.exit(1);
+  });
 // }

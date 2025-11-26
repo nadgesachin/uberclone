@@ -10,10 +10,10 @@ services:
       KAFKA_BROKER_ID: 1
 
       # Connect Docker Kafka to LOCAL zookeeper
-      KAFKA_ZOOKEEPER_CONNECT: 10.111.80.166:2181
+      KAFKA_ZOOKEEPER_CONNECT: 10.35.73.166:2181
 
       # Advertise Kafka correctly to your host machine
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://10.111.80.166:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://10.35.73.166:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
 
       # Required for wurstmeister images

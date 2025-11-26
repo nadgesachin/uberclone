@@ -1,97 +1,97 @@
 {
-    "driver-location": {
-        "groupId": "ride-api-driver-location",
-        "topic": "driver-location",
-        "key": "driverLocation",
-        "minBytes": 1,
-        "maxBytes": 500,
-        "consumerStatus": true,
-        "producerStatus": true,
-        "returnToLastOffset": false,
-        "resendErrorLogs": true
-    },
+  "driver-location": {
+    "groupId": "ride-api-driver-location",
+    "topic": "driver-location",
+    "key": "driverLocation",
+    "minBytes": 1,
+    "maxBytes": 500,
+    "consumerStatus": true,
+    "producerStatus": true,
+    "returnToLastOffset": false,
+    "resendErrorLogs": true
+  },
 
-    "driver-status": {
-        "groupId": "ride-api-driver-status",
-        "topic": "driver-status",
-        "key": "driverStatus",
-        "minBytes": 1,
-        "maxBytes": 200,
-        "consumerStatus": true,
-        "producerStatus": true,
-        "returnToLastOffset": false,
-        "resendErrorLogs": true
-    },
+  "driver-status": {
+    "groupId": "ride-api-driver-status",
+    "topic": "driver-status",
+    "key": "driverStatus",
+    "minBytes": 1,
+    "maxBytes": 200,
+    "consumerStatus": true,
+    "producerStatus": true,
+    "returnToLastOffset": false,
+    "resendErrorLogs": true
+  },
 
-    "ride-request": {
-        "groupId": "ride-api-ride-request",
-        "topic": "ride-request",
-        "key": "rideRequest",
-        "minBytes": 1,
-        "maxBytes": 1000,
-        "consumerStatus": true,
-        "producerStatus": true,
-        "returnToLastOffset": true,
-        "resendErrorLogs": true
-    },
+  "ride-request": {
+    "groupId": "ride-api-ride-request",
+    "topic": "ride-request",
+    "key": "rideRequest",
+    "minBytes": 1,
+    "maxBytes": 1000,
+    "consumerStatus": true,
+    "producerStatus": true,
+    "returnToLastOffset": true,
+    "resendErrorLogs": true
+  },
 
-    "ride-assigned": {
-        "groupId": "ride-api-ride-assigned",
-        "topic": "ride-assigned",
-        "key": "rideAssigned",
-        "minBytes": 1,
-        "maxBytes": 500,
-        "consumerStatus": true,
-        "producerStatus": true,
-        "returnToLastOffset": true,
-        "resendErrorLogs": true
-    },
+  "ride-assigned": {
+    "groupId": "ride-api-ride-assigned",
+    "topic": "ride-assigned",
+    "key": "rideAssigned",
+    "minBytes": 1,
+    "maxBytes": 500,
+    "consumerStatus": true,
+    "producerStatus": true,
+    "returnToLastOffset": true,
+    "resendErrorLogs": true
+  },
 
-    "ride-started": {
-        "groupId": "ride-api-ride-started",
-        "topic": "ride-started",
-        "key": "rideStarted",
-        "minBytes": 1,
-        "maxBytes": 300,
-        "consumerStatus": true,
-        "producerStatus": true,
-        "returnToLastOffset": false,
-        "resendErrorLogs": true
-    },
+  "ride-started": {
+    "groupId": "ride-api-ride-started",
+    "topic": "ride-started",
+    "key": "rideStarted",
+    "minBytes": 1,
+    "maxBytes": 300,
+    "consumerStatus": true,
+    "producerStatus": true,
+    "returnToLastOffset": false,
+    "resendErrorLogs": true
+  },
 
-    "ride-ended": {
-        "groupId": "ride-api-ride-ended",
-        "topic": "ride-ended",
-        "key": "rideEnded",
-        "minBytes": 1,
-        "maxBytes": 300,
-        "consumerStatus": true,
-        "producerStatus": true,
-        "returnToLastOffset": false,
-        "resendErrorLogs": true
-    },
+  "ride-ended": {
+    "groupId": "ride-api-ride-ended",
+    "topic": "ride-ended",
+    "key": "rideEnded",
+    "minBytes": 1,
+    "maxBytes": 300,
+    "consumerStatus": true,
+    "producerStatus": true,
+    "returnToLastOffset": false,
+    "resendErrorLogs": true
+  },
 
-    "fare-estimated": {
-        "groupId": "ride-api-fare-estimated",
-        "topic": "fare-estimated",
-        "key": "fareEstimated",
-        "minBytes": 1,
-        "maxBytes": 300,
-        "consumerStatus": false,
-        "producerStatus": true,
-        "returnToLastOffset": false,
-        "resendErrorLogs": true
-    },
+  "fare-estimated": {
+    "groupId": "ride-api-fare-estimated",
+    "topic": "fare-estimated",
+    "key": "fareEstimated",
+    "minBytes": 1,
+    "maxBytes": 300,
+    "consumerStatus": false,
+    "producerStatus": true,
+    "returnToLastOffset": false,
+    "resendErrorLogs": true
+  },
 
-    "driver-analytics": {
-        "groupId": "ride-api-driver-analytics",
-        "topic": "driver-analytics",
-        "key": "driverAnalytics",
-        "minBytes": 500,
-        "maxBytes": 5000,
-        "consumerStatus": true,
-        "producerStatus": true,
-        "returnToLastOffset": true,
-        "resendErrorLogs": true
-    }
+  "driver-analytics": {
+    "groupId": "ride-api-driver-analytics",
+    "topic": "driver-analytics",
+    "key": "driverAnalytics",
+    "minBytes": 500,
+    "maxBytes": 5000,
+    "consumerStatus": true,
+    "producerStatus": true,
+    "returnToLastOffset": true,
+    "resendErrorLogs": true
+  }
 }
