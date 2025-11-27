@@ -1,28 +1,117 @@
 version: '3.8'
 
 services:
-  kafka:
-    image: wurstmeister/kafka:2.13-2.8.1
-    container_name: kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - "9092:9092"
+      - "2182:2181"  # Changed: 2182 external, 2181 internal
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9093:9092"  # Changed: 9093 external, 9092 internal
     environment:
       KAFKA_BROKER_ID: 1
-
-      # Connect Docker Kafka to LOCAL zookeeper
-      KAFKA_ZOOKEEPER_CONNECT: 10.35.73.166:2181
-
-      # Advertise Kafka correctly to your host machine
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://10.35.73.166:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
-      # Required for wurstmeister images
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6380:6379"  # Changed: 6380 external, 6379 internal
+    command: redis-server --save 60 1 --loglevel warning
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27018:27017"  # Changed: 27018 external, 27017 internal
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_DATABASE: uber_clone
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/uber_clone --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "4001:4000"  # Changed: 4001 external, 4000 internal
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGODB_URI: mongodb://root:example@mongodb:27017/uber_clone?authSource=admin
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      JWT_SECRET: super_strong_jwt_secret_change_in_production_123
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3001:80"  # Changed: 3001 external, 80 internal
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  mongo-data:
 
 networks:
   default:
-    driver: bridge
+    name: uber_clone_network
